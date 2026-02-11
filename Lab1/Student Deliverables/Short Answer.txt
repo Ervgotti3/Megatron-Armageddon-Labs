@@ -1,0 +1,6 @@
+A) Why is DB inbound source restricted to the EC2 security group? 
+Answer: we only want the EC2 security group to have access to the database
+B) What port does MySQL use? 
+Answer: 3306
+C) Why is Secrets Manager better than storing creds in code/user-data? 
+Answer: it rotates, plus avoid password from being writing elsewhere
