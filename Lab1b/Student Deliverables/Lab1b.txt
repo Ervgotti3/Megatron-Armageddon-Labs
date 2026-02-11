@@ -1,0 +1,79 @@
+
+
+
+7.1 Verify Parameter Store Values
+Expected: Parameter names returned Correct DB endpoint and port
+    Answer: An error occurred (AccessDeniedException) when calling the GetParameters operation: 
+    User: arn:aws:sts::469844224860:assumed-role/RDSLab-Admin/i-06cab1cba683989ae
+          **the role does not have access to the parameter store**
+7.2 Verify Secrets Manager Value
+Expected: JSON output Fields: username password host port
+    Answer: **printscreen included**
+ "ARN": "arn:aws:secretsmanager:us-east-1:469844224860:secret:lab/rds/mysql-WEit95",
+    "Name": "lab/rds/mysql",
+    "VersionId": "3dd710e9-d33a-44eb-baaa-b1414bf5b5f6",
+    "SecretString": "{\"username\":\"admin\",\"password\":\"Class7Arma!\",\"engine\":\"mysql\",\"host\":\"rds-lab-mysqldb.chmigsogeyr6.us-east-1.rds.amazonaws.com\",\"port \":3306 ,\"dbInstanceIdentifier\":\"rds-lab-mysqldb\"}",
+    "VersionStages": [
+        "AWSCURRENT"
+    ],
+    "CreatedDate": "2026-01-08T17:06:21.269000+00:00"
+
+
+7.3 Verify EC2 Can Read Both Systems From EC2:
+Expected: Both commands succeed No AccessDeniedException
+    Answer: [ec2-user@ip-172-30-0-223 ~]$ aws ssm get-parameter --name /lab/db/endpoint
+aws secretsmanager get-secret-value --secret-id lab/rds/mysql
+
+An error occurred (AccessDeniedException) when calling the GetParameter operation: User: arn:aws:sts::469844224860:assumed-role/RDSLab-Admin/i-06cab1cba683989ae is not authorized to perform: ssm:GetParameter on resource: arn:aws:ssm:us-east-1:469844224860:parameter/lab/db/endpoint because no identity-based policy allows the ssm:GetParameter action
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:469844224860:secret:lab/rds/mysql-WEit95",
+    "Name": "lab/rds/mysql",
+    "VersionId": "3dd710e9-d33a-44eb-baaa-b1414bf5b5f6",
+    "SecretString": "{\"username\":\"admin\",\"password\":\"Class7Arma!\",\"engine\":\"mysql\",\"host\":\"rds-lab-mysqldb.chmigsogeyr6.us-east-1.rds.amazonaws.com\",\"port\":3306,\"dbInstanceIdentifier\":\"rds-lab-mysqldb\"}",
+    "VersionStages": [
+        "AWSCURRENT"
+    ],
+    "CreatedDate": "2026-01-08T17:06:21.269000+00:00"
+7.4 Verify CloudWatch Log Group Exists
+Expected: Log group present
+    Answer:[ec2-user@ip-172-30-0-223 ~]$ aws logs describe-log-groups \
+  --log-group-name-prefix /aws/ec2/lab-rds-app
+{
+    "logGroups": [
+        {
+            "logGroupName": "/aws/ec2/lab-rds-app",
+            "creationTime": 1768160814248,
+            "metricFilterCount": 2,
+            "arn": "arn:aws:logs:us-east-1:469844224860:log-group:/aws/ec2/lab-rds-app:*",
+            "storedBytes": 0,
+            "logGroupClass": "STANDARD",
+            "logGroupArn": "arn:aws:logs:us-east-1:469844224860:log-group:/aws/ec2/lab-rds-app",
+            "deletionProtectionEnabled": false
+        }
+    ]
+}
+7.5 Verify DB Failure Logs Appear Simulate failure (examples): Stop RDS Change DB password in Secrets Manager without updating DB Block SG temporarily
+Expected: Explicit DB connection failure messages
+    Answer:[ec2-user@ip-172-30-0-223 ~]$ aws logs filter-log-events \
+  --log-group-name /aws/ec2/lab-rds-app \
+  --filter-pattern "ERROR"
+
+An error occurred (AccessDeniedException) when calling the FilterLogEvents operation: User: arn:aws:sts::469844224860:assumed-role/RDSLab-Admin/i-06cab1cba683989ae is not authorized to perform: logs:FilterLogEvents on resource: arn:aws:logs:us-east-1:469844224860:log-group:/aws/ec2/lab-rds-app:log-stream: because no identity-based policy allows the logs:FilterLogEvents action
+7.6 Verify CloudWatch Alarm
+Expected: Alarm present State transitions to ALARM during failure
+    Answer: alarms was triggered **See printscreen**
+7.7 Incident Recovery Verification After restoring correct credentials or connectivity:
+Expected: Expected: Application resumes normal operation No redeployment required
+Answer:[ec2-user@ip-172-30-0-223 ~]$ curl http://100.48.9.3/list
+<h3>Notes</h3><ul><li>15: first_note</li><li>14: first_note</li><li>13: first_note</li><li>12: first_note</li><li>11: first_note</li><li>10: first_note</li><li>9: first_note</li><li>8: first_note</li><li>7: first_note</li><li>6: first_note</li><li>5: first_note</li><li>4: first_note</li><li>3: first_note</li><li>2: first_note</li><li>1: first_note</li></ul>[ec2-user@ip-172-30-0-223
+
+11. 
+A) Why might Parameter Store still exist alongside Secrets Manager? 
+   Answer: Parameter store is best for db name and ports and secret manager keeps passwords
+B) What breaks first during secret rotation? 
+   Answer: the application breaks first. In this lab the IAM permission block secret access immediately caused application failures
+C) Why should alarms be based on symptoms instead of causes?
+   Answer:
+D) How does this lab reduce mean time to recovery (MTTR)? 
+   Answer:
+E) What would you automate next?
