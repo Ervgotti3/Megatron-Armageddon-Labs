@@ -1,0 +1,21 @@
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────── 
+terraform apply evidence (outputs)
+Answers:
+megatron_ec2_instance_id = "i-0905d1d39ab5959ea"
+megatron_log_group_name = "/aws/ec2/megatron-rds-app"
+megatron_private_subnet_ids = [
+  "subnet-09db6e02404dfe9a0",
+  "subnet-02a4df7ae5ee60dbd",
+]
+megatron_public_subnet_ids = [
+  "subnet-0896e69abd7461f7c",
+  "subnet-0cf3f0dc29068f8cd",
+]
+megatron_rds_endpoint = "megatron-rds01.chmigsogeyr6.us-east-1.rds.amazonaws.com"
+megatron_sns_topic_arn = "arn:aws:sns:us-east-1:469844224860:megatron-db-incidents"
+megatron_vpc_id = "vpc-0360b5606182297f5"
+private_key = <sensitive>
+public_key = <<EOT
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDOOteQYHr7exzu4S49Iwrm47ZjtTaPiYdV6XBiCfkgoITR01v1AsVhlPDTCyM/a04O/tvLv6aw7G8GUIJ7V7PHqCDBPVoxWWQ8jzMVY20DIx4F04IGyUeoLEDb5Z2cHGHrVV/7AtHmkvef+/T4oCfUvW4EligbS548TtyUZda/4T7w0V72+VTIiPIJUy+4W8lcOMVkIJoe/mtRwXaq01iQznh329VYx3oIESTNz0GpYhZkwwQRpkjH6Mkic+lR9AXWlza6P24+Lm6jARq+WhNs1zZa7uAOLOMn0OEd2p+RFahinqICObLl3tU0Po+xKryYtad8BVzXWJb37S1Uqhd9
+
+EOT

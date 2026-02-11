@@ -1,0 +1,102 @@
+CLI verification commands (from Lab 1b)
+Answers: Pasted below and  Screenshots attached in dir
+sh-5.2$  aws ssm get-parameters \
+  --names /lab/db/endpoint /lab/db/port /lab/db/name \
+  --with-decryption
+{
+    "Parameters": [
+        {
+            "Name": "/lab/db/endpoint",
+            "Type": "String",
+            "Value": "megatron-rds01.chmigsogeyr6.us-east-1.rds.amazonaws.com",
+            "Version": 1,
+            "LastModifiedDate": "2026-01-24T17:42:37.106000+00:00",
+            "ARN": "arn:aws:ssm:us-east-1:469844224860:parameter/lab/db/endpoint",
+            "DataType": "text"
+        },
+        {
+            "Name": "/lab/db/name",
+            "Type": "String",
+            "Value": "Cybertronsqldb",
+            "Version": 1,
+            "LastModifiedDate": "2026-01-24T17:37:23.593000+00:00",
+            "ARN": "arn:aws:ssm:us-east-1:469844224860:parameter/lab/db/name",
+            "DataType": "text"
+        },
+        {
+            "Name": "/lab/db/port",
+            "Type": "String",
+            "Value": "3306",
+            "Version": 1,
+            "LastModifiedDate": "2026-01-24T17:42:37.107000+00:00",
+            "ARN": "arn:aws:ssm:us-east-1:469844224860:parameter/lab/db/port",
+            "DataType": "text"
+        }
+    ],
+    "InvalidParameters": []
+}
+sh-5.2$   aws secretsmanager get-secret-value \
+  --secret-id megatron/lab1/rds/mysql
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:469844224860:secret:megatron/lab1/rds/mysql-U4kkpU",
+    "Name": "megatron/lab1/rds/mysql",
+    "VersionId": "terraform-20260124182014130500000002",
+    "SecretString": "{\"dbname\":\"Cybertronsqldb\",\"host\":\"megatron-rds01.chmigsogeyr6.us-east-1.rds.amazonaws.com\",\"password\":\"AllhailMegatron123!\",\"port\":3306,\"username\":\"admin\"}",
+    "VersionStages": [
+        "AWSCURRENT"
+    ],
+    "CreatedDate": "2026-01-24T18:20:14.623000+00:00"
+
+sh-5.2$ aws ssm get-parameter --name /lab/db/endpoint
+aws secretsmanager get-secret-value --secret-id megatron/lab1/rds/mysql
+{
+    "Parameter": {
+        "Name": "/lab/db/endpoint",
+        "Type": "String",
+        "Value": "megatron-rds01.chmigsogeyr6.us-east-1.rds.amazonaws.com",
+        "Version": 1,
+        "LastModifiedDate": "2026-01-24T17:42:37.106000+00:00",
+        "ARN": "arn:aws:ssm:us-east-1:469844224860:parameter/lab/db/endpoint",
+        "DataType": "text"
+    }
+}
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:469844224860:secret:megatron/lab1/rds/mysql-U4kkpU",
+    "Name": "megatron/lab1/rds/mysql",
+    "VersionId": "terraform-20260124182014130500000002",
+    "SecretString": "{\"dbname\":\"Cybertronsqldb\",\"host\":\"megatron-rds01.chmigsogeyr6.us-east-1.rds.amazonaws.com\",\"password\":\"AllhailMegatron123!\",\"port\":3306,\"username\":\"admin\"}",
+    "VersionStages": [
+        "AWSCURRENT"
+    ],
+    "CreatedDate": "2026-01-24T18:20:14.623000+00:00"
+}
+sh-5.2$ aws logs describe-log-groups \
+  --log-group-name-prefix /aws/ec2/megatron-rds-app
+{
+    "logGroups": [
+        {
+            "logGroupName": "/aws/ec2/megatron-rds-app",
+            "creationTime": 1769276243581,
+            "retentionInDays": 7,
+            "metricFilterCount": 0,
+            "arn": "arn:aws:logs:us-east-1:469844224860:log-group:/aws/ec2/megatron-rds-app:*",
+            "storedBytes": 0,
+            "logGroupClass": "STANDARD",
+            "logGroupArn": "arn:aws:logs:us-east-1:469844224860:log-group:/aws/ec2/megatron-rds-app",
+            "deletionProtectionEnabled": false
+        }
+    ]
+}
+sh-5.2$ aws logs filter-log-events \
+  --log-group-name /aws/ec2/megatron-rds-app \
+  --filter-pattern "ERROR"
+
+An error occurred (AccessDeniedException) when calling the FilterLogEvents operation: User: arn:aws:sts::469844224860:assumed-role/megatron-ec2-role01/i-0d338aa9af150ae6e is not authorized to perform: logs:FilterLogEvents on resource: arn:aws:logs:us-east-1:469844224860:log-group:/aws/ec2/megatron-rds-app:log-stream: because no identity-based policy allows the logs:FilterLogEvents action
+sh-5.2$ 
+
+sh-5.2$ aws cloudwatch describe-alarms \
+  --alarm-name-prefix megatron-db-connection-failure
+
+An error occurred (AccessDenied) when calling the DescribeAlarms operation: User: arn:aws:sts::469844224860:assumed-role/megatron-ec2-role01/i-0d338aa9af150ae6e is not authorized to perform: cloudwatch:DescribeAlarms on resource: arn:aws:cloudwatch:us-east-1:469844224860:alarm:* because no identity-based policy allows the cloudwatch:DescribeAlarms action
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Incident runbook execution notes (alarm fired + recovered)
