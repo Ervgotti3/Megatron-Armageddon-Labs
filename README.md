@@ -1,456 +1,286 @@
-# Megatron-Armageddon-Labs
+Secure AWS Application Architecture – From Foundational Pattern to Edge-Hardened Production Design
 
+Overview
 
+This project documents the design and implementation of a secure, production-style AWS architecture using Terraform.
 
-LAB1
+It begins with a foundational EC2 → RDS pattern (Lab 1) and evolves into a hardened, edge-protected architecture using CloudFront origin cloaking and WAF enforcement (Lab 2).
 
+The objective was not to build a complex application — it was to build secure infrastructure patterns that mirror real enterprise workloads.
 
+Lab 1 – EC2 → RDS Foundational Pattern
+Objective
 
-EC2 → RDS Integration Lab
+Build and validate a classic cloud application architecture:
 
+EC2 (compute layer)
 
+RDS MySQL (managed database)
 
-Foundational Cloud Application Pattern
+Secrets Manager (credential management)
 
+IAM roles (no static credentials)
 
+Security groups enforcing least privilege
 
-Project Overview (What You Are Building) In this lab, you will build a classic cloud application architecture: A compute layer running on an Amazon EC2 instance A managed relational database hosted on Amazon RDS Secure connectivity between the two using VPC networking and security groups Credential management using AWS Secrets Manager A simple application that writes and reads data from the database
+VPC-based network isolation
 
-The application itself is intentionally minimal. The learning value is not the app, but the cloud infrastructure pattern it demonstrates.
+This pattern is foundational to:
 
+Internal enterprise tools
 
+SaaS backends
 
-This pattern appears in: Internal enterprise tools SaaS products Backend APIs Legacy modernization projects Lift-and-shift workloads Cloud security assessments
+Lift-and-shift migrations
 
+DevOps and SRE environments
 
+Security assessments
 
-If you can build and verify this pattern, you understand the foundation of real AWS workloads.
+AWS Solutions Architect interviews
 
+If you understand this pattern, you understand the backbone of most AWS workloads.
 
+Architecture – Lab 1
+User → EC2 → RDS
+              ↑
+       Secrets Manager
 
-Why This Lab Exists (Industry Context) This Is One of the Most Common Interview Architectures Employers routinely expect engineers to understand: How EC2 communicates with RDS How database access is restricted Where credentials are stored How connectivity is validated How failures are debugged
+Logical Flow
 
-You will encounter variations of this question in: AWS Solutions Architect interviews Cloud Security roles DevOps and SRE interviews Incident response scenarios
+User sends HTTP request to EC2 instance
 
+EC2 application:
 
+Assumes IAM role
 
-If you cannot explain this pattern clearly, you will struggle in real cloud environments.
+Retrieves DB credentials from Secrets Manager
 
+Connects to RDS endpoint
 
+Application writes/reads data
 
-Why This Pattern Matters to the Workforce What Employers Are Actually Testing This lab evaluates whether you understand:
+Response returned to user
 
-Skill Why It Matters Security Groups Primary AWS network security boundary Least Privilege Prevents credential leakage \& lateral movement Managed Databases Operational responsibility vs infrastructure IAM Roles Eliminates static credentials Application-to-DB Trust Core of backend security
+Security Model – Lab 1
 
+RDS is not publicly accessible
 
+RDS only allows inbound traffic from EC2 Security Group
 
-This is not a toy problem. This is how real systems are built.
+EC2 uses IAM role to retrieve secrets
 
+No passwords stored in:
 
+source code
 
-Architectural Design (Conceptual) Logical Flow
+AMIs
 
-A user sends an HTTP request to an EC2 instance
+environment variables
 
-The EC2 application: Retrieves database credentials from Secrets Manager Connects to the RDS MySQL endpoint
+Least privilege security group design
 
-Data is written to or read from the database
+TLS termination at ALB
 
-Results are returned to the user
+This design enforces real-world trust boundaries.
 
-Security Model RDS is not publicly accessible RDS only allows inbound traffic from the EC2 security group EC2 retrieves credentials dynamically via IAM role No passwords are stored in code or AMIs
+Terraform Concepts Implemented (Lab 1)
 
+Modular resource design
 
+Dynamic naming with random_id
 
-This is intentional friction — security is part of the design.
+Secrets stored in AWS Secrets Manager
 
+IAM role + instance profile for EC2
 
+Private RDS subnet placement
 
-Expected Deliverables (What You Must Produce) Each student must submit:
+ALB with HTTPS listener
 
-A. Infrastructure Proof
+DNS via Route53
 
+S3 bucket for ALB access logs
 
+CloudWatch logging and metrics
 
-EC2 instance running and reachable over HTTP
+Lab 1 Verification
 
-RDS MySQL instance in the same VPC
+Confirm EC2 can retrieve DB credentials
 
-Security group rule showing: RDS inbound TCP 3306 Source = EC2 security group (not 0.0.0.0/0) IAM role attached to EC2 allowing Secrets Manager access
+Confirm EC2 can connect to RDS
 
-B. Application Proof
+Confirm RDS is not publicly reachable
 
+Confirm ALB is serving application traffic
 
+Confirm Secrets Manager contains credentials
 
-Successful database initialization
+Confirm security groups enforce least privilege
 
-Ability to insert records into RDS
+Lab 2 – Edge Security & Origin Cloaking
+Objective
 
-Ability to read records from RDS
+Transform the Lab 1 architecture into a production-grade edge-hardened design.
 
-C. Verification Evidence
+Key Requirements
 
+Only CloudFront is publicly reachable
 
+ALB is cloaked and cannot be accessed directly
 
-CLI output proving connectivity and configuration
+WAF enforcement moves from ALB → CloudFront
 
-Browser output showing database data
+DNS points to CloudFront, not ALB
 
-Technical Verification Using AWS CLI (Mandatory) You are expected to prove your work using the CLI — not screenshots alone.
+Defense-in-depth origin protection
 
-6.1 Verify EC2 Instance aws ec2 describe-instances
+Architecture – Lab 2
+Internet
+   ↓
+CloudFront (WAF at Edge)
+   ↓
+ALB (Origin Cloaked)
+   ↓
+Private EC2
+   ↓
 
---filters "Name=tag:Name,Values=lab-ec2-app"
+Security Enhancements Introduced in Lab 2
+1. Origin Cloaking
 
---query "Reservations\[].Instances\[].InstanceId" Expected: Instance ID returned Instance state = running
+The ALB is technically internet-facing, but functionally private.
 
+Controls implemented:
 
+Security Group allows inbound only from:
+AWS-managed prefix list
+com.amazonaws.global.cloudfront.origin-facing
 
-6.2 Verify IAM Role Attached to EC2 aws ec2 describe-instances
+ALB listener rule requires a secret custom header:
+X-Megatron-Growl
 
---instance-ids <INSTANCE\_ID>
+Requests missing the header receive HTTP 403
 
---query "Reservations\[].Instances\[].IamInstanceProfile.Arn"
+Even if someone knows the ALB DNS name, they cannot bypass CloudFront.   
 
+2. WAF Enforcement at the Edge
 
+WAFv2 scope = "CLOUDFRONT"
 
-Expected: ARN of an IAM instance profile (not null)
+AWS Managed Rules enabled
 
+Associated directly to CloudFront distribution
 
+All filtering happens before traffic reaches origin
 
-6.3 Verify RDS Instance State aws rds describe-db-instances
+3. DNS Migration
 
---db-instance-identifier lab-mysql
+Route53 updated:
 
---query "DBInstances\[].DBInstanceStatus"
+technology4gold.com → CloudFront
 
+app.technology4gold.com → CloudFront
 
+Verified via:
 
-Expected Available
+aws route53 list-resource-record-sets ...
 
+Lab 2 Verification Results
+Alias target confirms CloudFront domain.
 
+Direct ALB Access
+curl -k -I https://<ALB_DNS>
 
-6.4 Verify RDS Endpoint (Connectivity Target) aws rds describe-db-instances
 
---db-instance-identifier lab-mysql
+Result: 403 Forbidden
 
---query "DBInstances\[].Endpoint"
+CloudFront Access
+curl -I https://technology4gold.com
+curl -I https://app.technology4gold.com
 
 
+Result: 200 OK
 
-Expected: Endpoint address Port 3306
+✔ CloudFront is sole ingress
 
+WAF Attached
+aws cloudfront get-distribution ...
 
 
-6.5 Verify Security Group Rules (Critical) RDS Security Group Inbound Rules aws ec2 describe-security-groups
+Result: WebACL ARN present
 
---group-names sg-rds-lab
+✔ Edge enforcement confirmed
 
---query "SecurityGroups\[].IpPermissions"
+Terraform Concepts Demonstrated (Lab 2)
 
+Multiple provider configuration (us-east-1 for CloudFront ACM)
 
+Terraform-managed ACM certificate validation
 
-Expected: TCP port 3306 Source referencing EC2 security group ID, not CIDR
+Random secret generation for origin header
 
+AWS-managed prefix lists
 
+WAFv2 global scope configuration
 
-6.6 Verify Secrets Manager Access (From EC2) SSH into EC2 and run: aws secretsmanager get-secret-value
+Conditional resource indexing with count
 
---secret-id lab/rds/mysql
+DNS UPSERT with allow_overwrite = true
 
+Dependency management across regions
 
+What This Project Demonstrates
 
-Expected: JSON containing: username password host port
+This is not a toy lab.
 
+It demonstrates the ability to:
 
+Design secure AWS network boundaries
 
-If this fails, IAM is misconfigured.
+Implement least privilege correctly
 
+Move security controls to the edge
 
+Prevent origin bypass
 
-6.7 Verify Database Connectivity (From EC2) Install MySQL client (temporary validation): sudo dnf install -y mysql
+Manage multi-region infrastructure with Terraform
 
+Debug real-world issues (DNS conflicts, validation records, resource dependencies)
 
+Validate infrastructure through CLI testing
 
-Connect: mysql -h <RDS\_ENDPOINT> -u admin -p
+Skills Demonstrated
 
+AWS VPC architecture
 
+EC2 / RDS integration
 
-Expected: Successful login No timeout or connection refused errors
+Secrets Manager usage
 
+IAM roles and trust policies
 
+ALB listener rules
 
-6.8 Verify Data Path End-to-End From browser: http://<EC2\_PUBLIC\_IP>/init http://<EC2\_PUBLIC\_IP>/add?note=cloud\_labs\_are\_real http://<EC2\_PUBLIC\_IP>/list
+CloudFront custom origin configuration
 
+WAFv2 configuration (regional + global)
 
+Route53 DNS management
 
-Expected: Notes persist across refresh Data survives application restart
+Infrastructure-as-Code with Terraform
 
+Incident-style debugging and verification
 
+*** Future Enhancements ***
 
-Common Failure Modes (And What They Teach)
+Remote Terraform state (S3 + DynamoDB locking)
 
-Failure Lesson Connection timeout Security group or routing issue Access denied IAM or Secrets Manager misconfiguration App starts but DB fails Dependency order matters Works once then breaks Stateless compute vs stateful DB
+Terraform modules separation
 
+CI/CD pipeline integration
 
+OIDC authentication for GitHub Actions
 
-Every failure here mirrors real production outages.
+PrivateLink or internal ALB architecture
 
-
-
-What This Lab Proves About You If you complete this lab correctly, you can say: “I understand how real AWS applications securely connect compute to managed databases.”
-
-That is a non-trivial claim in the job market.
-
-
-
-
-
-Lab 1b — Operations, Secrets, and Incident Response Prerequisite: Lab 1a completed and verified
-
-
-
-Project Overview (What This Lab Is About) In Lab 1a, you built a working system. In Lab 1b, you will operate, observe, break, and recover that system. You will extend your EC2 → RDS application to include: Dual secret storage AWS Systems Manager Parameter Store AWS Secrets Manager Centralized logging via CloudWatch Logs Automated alarms when database connectivity fails Incident-response actions using previously saved values
-
-This lab simulates what happens after deployment, which is where most real cloud work lives.
-
-
-
-Why This Lab Exists (Real-World Context) Most cloud failures are not caused by: Bad code Missing features Wrong instance sizes
-
-They are caused by: Credential issues Secret rotation failures Misconfigured access Silent connectivity loss Poor observability
-
-
-
-This lab teaches you how to design for failure, detect it early, and recover using stored configuration data.
-
-
-
-Workforce Relevance (Why Employers Care) This Lab Maps Directly to Job Responsibilities In the workforce, you will be expected to: Know where secrets live Understand why multiple secret systems exist Diagnose outages using logs and metrics Respond to incidents without redeploying everything Restore service quickly using known-good configuration
-
-This is the difference between: “I can deploy AWS resources” and “I can keep systems running under pressure”
-
-
-
-Parameter Store vs Secrets Manager (Conceptual) You will store database connection values in both systems and intentionally use them during recovery. AWS Systems Manager Parameter Store Best for: Configuration values Non-rotating data Shared application parameters
-
-Supports: Plain text SecureString (encrypted)
-
-
-
-Often used for: Feature flags Endpoints Environment configuration
-
-
-
-AWS Secrets Manager Best for: Credentials Passwords Rotating secrets
-
-
-
-Supports: Automatic rotation Tight audit integration
-
-
-
-Often used for: Database passwords API keys
-
-
-
-Industry Reality: Many environments use both — intentionally.
-
-
-
-What You Are Building in Lab 1b New Capabilities Added
-
-Store DB values in Parameter Store
-
-Store DB credentials in Secrets Manager
-
-Log application DB connection failures to CloudWatch Logs
-
-Create a CloudWatch Alarm that triggers when failures exceed a threshold
-
-Simulate a DB outage or credential failure
-
-Recover the system using saved parameters/secrets without redeploying EC2
-
-This is operations engineering, not app development.
-
-
-
-Expected Deliverables (What You Must Produce) A. Configuration Artifacts Parameter Store entries for: DB endpoint DB port DB name
-
-Secrets Manager secret for: DB username/password
-
-
-
-B. Observability Application logs visible in CloudWatch Logs Explicit log entries on DB connection failure CloudWatch Alarm configured on error count
-
-
-
-C. Incident Response Proof Evidence of a simulated failure Evidence of alarm triggering Evidence of successful recovery using stored values
-
-
-
-Technical Verification Using AWS CLI (Required) You must verify everything via CLI — not screenshots alone. What? You think this is easy?
-
-7.1 Verify Parameter Store Values
-
-
-
-aws ssm get-parameters \\
-
-&nbsp; --names /lab/db/endpoint /lab/db/port /lab/db/name \\
-
-&nbsp; --with-decryption
-
-Expected: Parameter names returned Correct DB endpoint and port
-
-
-
-7.2 Verify Secrets Manager Value
-
-
-
-&nbsp; aws secretsmanager get-secret-value \\
-
-&nbsp; --secret-id lab/rds/mysql
-
-Expected: JSON output Fields: username password host port
-
-
-
-7.3 Verify EC2 Can Read Both Systems From EC2:
-
-
-
-aws ssm get-parameter --name /lab/db/endpoint
-
-aws secretsmanager get-secret-value --secret-id lab/rds/mysql
-
-Expected: Both commands succeed No AccessDeniedException
-
-
-
-7.4 Verify CloudWatch Log Group Exists
-
-
-
-aws logs describe-log-groups \\
-
-&nbsp; --log-group-name-prefix /aws/ec2/lab-rds-app
-
-Expected: Log group present
-
-
-
-7.5 Verify DB Failure Logs Appear Simulate failure (examples): Stop RDS Change DB password in Secrets Manager without updating DB Block SG temporarily
-
-
-
-Then check logs:
-
-
-
-aws logs filter-log-events \\
-
-&nbsp; --log-group-name /aws/ec2/lab-rds-app \\
-
-&nbsp; --filter-pattern "ERROR"
-
-Expected: Explicit DB connection failure messages
-
-
-
-7.6 Verify CloudWatch Alarm
-
-
-
-aws cloudwatch describe-alarms \\
-
-&nbsp; --alarm-name-prefix lab-db-connection
-
-Expected: Alarm present State transitions to ALARM during failure
-
-
-
-7.7 Incident Recovery Verification After restoring correct credentials or connectivity:
-
-
-
-curl http://<EC2\_PUBLIC\_IP>/list
-
-Expected: Application resumes normal operation No redeployment required
-
-
-
-Incident-Response Focus (What This Lab Teaches) During recovery, you must: Identify failure source via logs Retrieve correct values from: Parameter Store Secrets Manager Restore service using configuration — not guesswork
-
-This mirrors real on-call workflows.
-
-
-
-Common Failure Modes (And Why They Matter) | Failure | Real-World Meaning | | -------------------------- | ------------------------- | | Alarm never fires | Poor observability | | Logs lack detail | Weak incident diagnostics | | EC2 can’t read parameters | IAM misdesign | | Recovery requires redeploy | Fragile architecture |
-
-
-
-What Completing Lab 1b Proves If you complete this lab, you can confidently say: “I can operate, monitor, and recover AWS workloads using proper secret management and observability.”
-
-
-
-That is mid-level engineer capability, not entry-level.
-
-
-
-Reflection Questions: Answer all of these A) Why might Parameter Store still exist alongside Secrets Manager? B) What breaks first during secret rotation? C) Why should alarms be based on symptoms instead of causes?
-
-D) How does this lab reduce mean time to recovery (MTTR)? E) What would you automate next?
-
-
-
-
-
-
-
-Lab 1C — Terraform: EC2 → RDS + Secrets/Params + Observability + Incident Alerts
-
-Purpose
-
-Modern companies do not build AWS by clicking around in the console. They use Infrastructure as Code (IaC) so environments are repeatable, reviewable, auditable, and recoverable.
-
-
-
-This repo is intentionally incomplete:
-
-
-
-It declares required resources
-
-Students must configure the details (rules, policies, user\_data, app logging, etc.)
-
-Requirements (must exist in Terraform)
-
-VPC, public/private subnets, IGW, NAT, routing
-
-EC2 app host + IAM role/profile
-
-RDS (private) + subnet group + SG with inbound from EC2 SG
-
-Parameter Store values (/lab/db/\*)
-
-Secrets Manager secret (db creds)
-
-CloudWatch log group
-
-CloudWatch alarm (DBConnectionErrors >= 3 per 5 min)
-
-SNS topic + subscription
-
-Student Deliverables
-
-terraform plan output
-
-terraform apply evidence (outputs)
-
-CLI verification commands (from Lab 1b)
-
-Incident runbook execution notes (alarm fired + recovered)
-
+CloudFront cache policy optimization
