@@ -1,0 +1,31 @@
+Verification CLI (students must prove all 3 requirements)
+1) “VPC is only reachable via CloudFront”
+A) Direct ALB access should fail (403)
+  curl -I https://<ALB_DNS_NAME>
+
+Expected: 403 (blocked by missing header)
+
+B) CloudFront access should succeed
+  curl -I https://chewbacca-growl.com
+  curl -I https://app.chewbacca-growl.com
+
+Expected: 200/301 → 200
+
+2) WAF moved to CloudFront
+  aws wafv2 get-web-acl \
+  --name <project>-cf-waf01 \
+  --scope CLOUDFRONT \
+  --id <WEB_ACL_ID>
+
+And confirm distribution references it:
+  aws cloudfront get-distribution \
+  --id <DISTRIBUTION_ID> \
+  --query "Distribution.DistributionConfig.WebACLId"
+
+Expected: WebACL ARN present.
+
+3) chewbacca-growl.com points to CloudFront
+  dig chewbacca-growl.com A +short
+  dig app.chewbacca-growl.com A +short
+
+Expected: resolves to CloudFront (you’ll see CloudFront anycast behavior, not ALB IPs)

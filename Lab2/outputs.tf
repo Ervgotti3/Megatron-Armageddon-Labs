@@ -66,9 +66,6 @@ output "megatron_acm_cert_arn" {
   value = aws_acm_certificate.megatron_acm_cert01.arn
 }
 
-output "megatron_waf_arn" {
-  value = var.enable_waf ? aws_wafv2_web_acl.megatron_waf01[0].arn : null
-}
 
 output "megatron_dashboard_name" {
   value = aws_cloudwatch_dashboard.megatron_dashboard01.dashboard_name
@@ -93,8 +90,12 @@ output "megatron_waf_log_destination" {
   value = local.waf_log_destination
 }
 
+output "megatron_waf_arn" {
+  value = var.enable_waf ? aws_wafv2_web_acl.megatron_cf_waf01[0].arn : null
+}
+
 output "megatron_waf_cw_log_group_name" {
-  #value = var.enable_waf && var.waf_log_destination == "cloudwatch" ? aws_cloudwatch_log_group.megatron_waf_log_group01[0].name : nulldepends_on = [  ]
+  #value = var.enable_waf && var.waf_log_destination == "cloudwatch" ? aws_cloudwatch_log_group.megatron_cf_waf_log_group01[0].name : nulldepends_on = [  ]
   value = var.waf_log_destination == "s3" ? aws_s3_bucket.megatron_waf_logs_bucket01[0].bucket : null
 }
 

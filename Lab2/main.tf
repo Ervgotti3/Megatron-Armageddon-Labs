@@ -687,6 +687,11 @@ resource "aws_cloudwatch_log_group" "megatron_log_group01" {
     Name = "${local.name_prefix}-log-group01"
   }
 }
+resource "aws_cloudwatch_log_group" "megatron_cf_waf_log_group01" {
+  count             = var.enable_waf ? 1 : 0
+  name              = "/aws/waf/${var.project_name}-cf-waf01"
+  retention_in_days = 7
+}
 
 #######################################################################################################
 # Custom Metric + Alarm (Skeleton)
@@ -938,42 +943,38 @@ resource "aws_acm_certificate" "megatron_acm_cert01" {
     Name = "${var.project_name}-acm-cert01"
   }
 }
+##################################################################################################################
+# Create new Route53 records for CloudFront (Lab 2)
+# Explanation: DNS validation is megatron roaring in the right place—prove you own the domain to get the cert.
+# NOTE: Students must create Route53 records for validation if using DNS method, or switch to EMAIL validation.
+##################################################################################################################
 
+resource "aws_route53_record" "megatron_apex_alias_cf01" {
+  zone_id         = local.megatron_zone_id
+  name            = var.domain_name
+  type            = "A"
+  allow_overwrite = true # This allows Terraform to update the record if the CloudFront distribution changes
 
-# Explanation: The zone  is the throne room—megatron-technology4gold.com itself should lead to the ALB.
-resource "aws_route53_record" "megatron_app_alias01" {
-  #zone_id = aws_route53_zone.megatron_zone01[0].zone_id
-  zone_id = local.megatron_zone_id
-  #name    = var.domain_name
-  name = "app.${var.domain_name}"
-  type = "A"
   alias {
-    name                   = aws_lb.megatron_alb01.dns_name
-    zone_id                = aws_lb.megatron_alb01.zone_id
-    evaluate_target_health = true
+    name                   = aws_cloudfront_distribution.megatron_cf01.domain_name
+    zone_id                = aws_cloudfront_distribution.megatron_cf01.hosted_zone_id
+    evaluate_target_health = false
   }
 }
 
-############################################
-# Bonus B - Route53 Zone Apex + ALB Access Logs to S3
-############################################
-
-############################################
-# Route53: Zone Apex (root domain) -> ALB
-############################################
-
-# Explanation: The zone apex is the throne room—technology4gold.com itself should lead to the ALB.
-resource "aws_route53_record" "megatron_apex_alias01" {
-  zone_id = local.megatron_zone_id
-  name    = var.domain_name
-  type    = "A"
+resource "aws_route53_record" "megatron_app_alias_cf01" {
+  zone_id         = local.megatron_zone_id
+  name            = "app.${var.domain_name}"
+  type            = "A"
+  allow_overwrite = true # This allows Terraform to update the record if the CloudFront distribution changes
 
   alias {
-    name                   = aws_lb.megatron_alb01.dns_name
-    zone_id                = aws_lb.megatron_alb01.zone_id
-    evaluate_target_health = true
+    name                   = aws_cloudfront_distribution.megatron_cf01.domain_name
+    zone_id                = aws_cloudfront_distribution.megatron_cf01.hosted_zone_id
+    evaluate_target_health = false
   }
 }
+
 
 ############################################
 # S3 bucket for ALB access logs
@@ -1152,61 +1153,18 @@ resource "aws_lb_listener" "megatron_https_listener01" {
 }
 
 ########################################################################################################
-# WAFv2 Web ACL (Basic managed rules)
+# LAB 1 - WAFv2 Web ACL (Basic managed rules)
+# Lab 2 - Removed and is now being used a lab2_cloudfront_sheild WAFv2 Web ACL (CLOUDFRONT scope)
 ########################################################################################################
 
-# Explanation: WAF is the shield generator — it blocks the cheap blaster fire before it hits your ALB.
-resource "aws_wafv2_web_acl" "megatron_waf01" {
-  count = var.enable_waf ? 1 : 0
+#Lab 2’s requirement is that WAF moves from ALB → CloudFront,
+## Lab 1 Explanation: Attach the shield generator to the customs checkpoint — ALB is now protected.
+#resource "aws_wafv2_web_acl_association" "megatron_waf_assoc01" {
+#  count = var.enable_waf ? 1 : 0
 
-  name  = "${var.project_name}-waf01"
-  scope = "REGIONAL"
-
-  default_action {
-    allow {}
-  }
-
-  visibility_config {
-    cloudwatch_metrics_enabled = true
-    metric_name                = "${var.project_name}-waf01"
-    sampled_requests_enabled   = true
-  }
-
-  # Explanation: AWS managed rules are like hiring Rebel commandos — they’ve seen every trick.
-  rule {
-    name     = "AWSManagedRulesCommonRuleSet"
-    priority = 1
-
-    override_action {
-      none {}
-    }
-
-    statement {
-      managed_rule_group_statement {
-        name        = "AWSManagedRulesCommonRuleSet"
-        vendor_name = "AWS"
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "${var.project_name}-waf-common"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  tags = {
-    Name = "${var.project_name}-waf01"
-  }
-}
-
-# Explanation: Attach the shield generator to the customs checkpoint — ALB is now protected.
-resource "aws_wafv2_web_acl_association" "megatron_waf_assoc01" {
-  count = var.enable_waf ? 1 : 0
-
-  resource_arn = aws_lb.megatron_alb01.arn
-  web_acl_arn  = aws_wafv2_web_acl.megatron_waf01[0].arn
-}
+#resource_arn = aws_lb.megatron_alb01.arn
+#web_acl_arn  = aws_wafv2_web_acl.megatron_waf01[0].arn
+#}
 ############################################
 # Bonus B - WAF Logging (CloudWatch Logs OR S3 OR Firehose)
 # One destination per Web ACL, choose via var.waf_log_destination.
@@ -1217,16 +1175,16 @@ resource "aws_wafv2_web_acl_association" "megatron_waf_assoc01" {
 ############################################
 
 # Explanation: WAF logs in CloudWatch are your “blaster-cam footage”—fast search, fast triage, fast truth.
-resource "aws_cloudwatch_log_group" "megatron_waf_log_group01" {
+resource "aws_cloudwatch_log_group" "megatron_waf_cf_log_group01" {
   #count = var.waf_log_destination == "cloudwatch" ? 1 : 0
   count = local.waf_dest_is_cloudwatch ? 1 : 0 # Best practice: Use local variable for clarity. (use your locals everywhere)
 
   # NOTE: AWS requires WAF log destination names start with aws-waf-logs- (students must not rename this).
-  name              = "aws-waf-logs-${var.project_name}-webacl01"
+  name              = "aws-waf-logs-${var.project_name}-cf-webacl01"
   retention_in_days = var.waf_log_retention_days
 
   tags = {
-    Name = "${var.project_name}-waf-log-group01"
+    Name = "${var.project_name}-cf-waf-log-group01"
   }
 }
 
@@ -1234,12 +1192,14 @@ resource "aws_cloudwatch_log_group" "megatron_waf_log_group01" {
 resource "aws_wafv2_web_acl_logging_configuration" "megatron_waf_logging01" {
   count = var.enable_waf && var.waf_log_destination == "cloudwatch" ? 1 : 0
 
-  resource_arn = aws_wafv2_web_acl.megatron_waf01[0].arn
+  # resource_arn = aws_wafv2_web_acl.megatron_waf01[0].arn
+  resource_arn = aws_wafv2_web_acl.megatron_cf_waf01[0].arn
+
   #log_destination_configs = [
-  # aws_cloudwatch_log_group.megatron_waf_log_group01[0].arn
+  #aws_cloudwatch_log_group.megatron_cf_waf_log_group01[0].arn
   #]
   log_destination_configs = [
-    local.waf_dest_is_cloudwatch ? aws_cloudwatch_log_group.megatron_waf_log_group01[0].arn :
+    local.waf_dest_is_cloudwatch ? aws_cloudwatch_log_group.megatron_cf_waf_log_group01[0].arn :
     local.waf_dest_is_s3 ? aws_s3_bucket.megatron_waf_logs_bucket01[0].arn :
     aws_kinesis_firehose_delivery_stream.megatron_waf_firehose01[0].arn
   ]
@@ -1249,7 +1209,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "megatron_waf_logging01" {
   # TODO: Students can add redacted_fields (authorization headers, cookies, etc.) as a stretch goal.
   # redacted_fields { ... }
 
-  depends_on = [aws_wafv2_web_acl.megatron_waf01]
+  depends_on = [aws_wafv2_web_acl.megatron_cf_waf01]
 }
 
 ############################################
@@ -1283,12 +1243,12 @@ resource "aws_s3_bucket_public_access_block" "megatron_waf_logs_pab01" {
 resource "aws_wafv2_web_acl_logging_configuration" "megatron_waf_logging_s3_01" {
   count = var.enable_waf && var.waf_log_destination == "s3" ? 1 : 0
 
-  resource_arn = aws_wafv2_web_acl.megatron_waf01[0].arn
+  resource_arn = aws_wafv2_web_acl.megatron_cf_waf01[0].arn
   log_destination_configs = [
     aws_s3_bucket.megatron_waf_logs_bucket01[0].arn
   ]
 
-  depends_on = [aws_wafv2_web_acl.megatron_waf01]
+  depends_on = [aws_wafv2_web_acl.megatron_cf_waf01]
 }
 
 ############################################
@@ -1359,9 +1319,9 @@ resource "aws_kinesis_firehose_delivery_stream" "megatron_waf_firehose01" {
   destination = "extended_s3"
 
   extended_s3_configuration {
-    role_arn   = aws_iam_role.megatron_firehose_role01[0].arn
-    bucket_arn = aws_s3_bucket.megatron_firehose_waf_dest_bucket01[0].arn
-    prefix     = "waf-logs/"
+    role_arn           = aws_iam_role.megatron_firehose_role01[0].arn
+    bucket_arn         = aws_s3_bucket.megatron_firehose_waf_dest_bucket01[0].arn
+    prefix             = "waf-logs/"
     buffering_interval = 60
     buffering_size     = 1
 
@@ -1373,10 +1333,10 @@ resource "aws_wafv2_web_acl_logging_configuration" "megatron_waf_logging_firehos
   #count = var.enable_waf && var.waf_log_destination == "firehose" ? 1 : 0
   count = var.enable_waf && local.waf_dest_is_firehose ? 1 : 0
 
-  resource_arn = aws_wafv2_web_acl.megatron_waf01[0].arn
+  resource_arn = aws_wafv2_web_acl.megatron_cf_waf01[0].arn
   log_destination_configs = [
     aws_kinesis_firehose_delivery_stream.megatron_waf_firehose01[0].arn
   ]
 
-  depends_on = [aws_wafv2_web_acl.megatron_waf01]
+  depends_on = [aws_wafv2_web_acl.megatron_cf_waf01]
 }
