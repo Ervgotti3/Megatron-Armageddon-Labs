@@ -22,6 +22,33 @@ resource "aws_cloudfront_distribution" "megatron_cf01" {
     }
   }
 
+  ################################################################################################
+  # Lab 2B-Honors - A) /api/public-feed = origin-driven caching
+  ################################################################################################
+
+  # Explanation: Public feed is cacheable—but only if the origin explicitly says so. Megatron demands consent.
+  ordered_cache_behavior {
+    path_pattern           = "/api/public-feed"
+    target_origin_id       = "${var.project_name}-alb-origin01"
+    viewer_protocol_policy = "redirect-to-https"
+
+    allowed_methods = ["GET", "HEAD", "OPTIONS"]
+    cached_methods  = ["GET", "HEAD"]
+
+    # Honor Cache-Control from origin (and default to not caching without it). :contentReference[oaicite:8]{index=8}
+    cache_policy_id = data.aws_cloudfront_cache_policy.megatron_use_origin_cache_headers01.id
+
+    # Forward what origin needs. Keep it tight: don't forward everything unless required. :contentReference[oaicite:9]{index=9}
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.megatron_orp_all_viewer_except_host01.id
+  }
+
+
+  #################################################################################################
+  # Lab 2B-Honors - B) /api/* = still safe default (no caching)
+  #################################################################################################  
+
+  # Explanation: Everything else under /api is dangerous by default—Megatron disables caching until proven safe.
+
   default_cache_behavior {
     target_origin_id       = "${var.project_name}-alb-origin01"
     viewer_protocol_policy = "redirect-to-https"
@@ -29,13 +56,22 @@ resource "aws_cloudfront_distribution" "megatron_cf01" {
     allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods  = ["GET", "HEAD"]
 
-    # TODO: students choose cache policy / origin request policy for their app type
-    # For APIs, typically forward all headers/cookies/querystrings.
-    forwarded_values {
-      query_string = true
-      headers      = ["*"]
-      cookies { forward = "all" }
-    }
+    cache_policy_id          = aws_cloudfront_cache_policy.megatron_cache_api_disabled01.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.megatron_orp_api01.id
+  }
+
+  # Explanation: Static behavior is the speed lane—megatron caches it hard for performance.
+  ordered_cache_behavior {
+    path_pattern           = "/static/*"
+    target_origin_id       = "${var.project_name}-alb-origin01"
+    viewer_protocol_policy = "redirect-to-https"
+
+    allowed_methods = ["GET", "HEAD", "OPTIONS"]
+    cached_methods  = ["GET", "HEAD"]
+
+    cache_policy_id            = aws_cloudfront_cache_policy.megatron_cache_static01.id
+    origin_request_policy_id   = aws_cloudfront_origin_request_policy.megatron_orp_static01.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.megatron_rsp_static01.id
   }
 
   # Explanation: Attach WAF at the edge — now WAF moved to CloudFront.
@@ -64,10 +100,12 @@ resource "aws_cloudfront_distribution" "megatron_cf01" {
   }
 }
 
+#no longer needed since we moved WAF to CloudFront in Lab2
 #You’ll need this variable:
-variable "cloudfront_acm_cert_arn" {
-  description = "ACM certificate ARN in us-east-1 for CloudFront (covers technology4gold.com and app.technology4gold.com)."
-  type        = string
-}
+#variable "cloudfront_acm_cert_arn" {
+#  description = "ACM certificate ARN in us-east-1 for CloudFront (covers technology4gold.com and app.technology4gold.com)."
+#  type        = string
+#  default     = null
+#}
 
 

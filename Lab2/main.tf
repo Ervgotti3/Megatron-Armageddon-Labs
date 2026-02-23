@@ -172,7 +172,7 @@ resource "aws_route_table_association" "megatron_private_rta" {
 # Security Group for VPC Interface Endpoints
 ########################################################################################################
 
-# Explanation: Even endpoints need guards—megatron posts a Wookiee at every airlock.
+# Explanation: Even endpoints need guards—megatron posts a Dedepticon at every airlock.
 resource "aws_security_group" "megatron_vpce_sg01" {
   name        = "${local.name_prefix}-vpce-sg01"
   description = "SG for VPC Interface Endpoints"
@@ -652,6 +652,14 @@ resource "aws_secretsmanager_secret_version" "megatron_db_secret_version01" {
     port     = aws_db_instance.megatron_rds01.port
     dbname   = var.db_name
   })
+}
+
+########################################################################################################
+# Random Password Generator (for Secrets Manager or Parameter Store values if you want to practice dynamic secrets)
+########################################################################################################
+resource "random_password" "megatron_origin_header_value01" {
+  length  = 32
+  special = false
 }
 
 ########################################################################################################
@@ -1237,6 +1245,7 @@ resource "aws_s3_bucket_public_access_block" "megatron_waf_logs_pab01" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+
 }
 
 # Explanation: Connect shield generator to archive vault—WAF -> S3.
@@ -1259,7 +1268,8 @@ resource "aws_wafv2_web_acl_logging_configuration" "megatron_waf_logging_s3_01" 
 resource "aws_s3_bucket" "megatron_firehose_waf_dest_bucket01" {
   count = local.waf_log_destination == "firehose" ? 1 : 0
 
-  bucket = "${var.project_name}-waf-firehose-dest-${data.aws_caller_identity.megatron_self01.account_id}"
+  bucket        = "${var.project_name}-waf-firehose-dest-${data.aws_caller_identity.megatron_self01.account_id}"
+  force_destroy = true # Optional for labs (allows bucket to be deleted even if logs exist)
 
   tags = {
     Name = "${var.project_name}-waf-firehose-dest-bucket01"
