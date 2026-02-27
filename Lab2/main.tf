@@ -912,7 +912,7 @@ resource "aws_lb_target_group" "megatron_tg01" {
   health_check {
     enabled             = true
     interval            = 30
-    path                = "/"
+    path                = "/health"
     port                = "traffic-port"
     protocol            = "HTTP"
     healthy_threshold   = 2
