@@ -6,9 +6,9 @@
 resource "aws_cloudfront_cache_policy" "megatron_cache_static01" {
   name        = "${var.project_name}-cache-static01"
   comment     = "Aggressive caching for /static/*"
-  default_ttl = 86400    # 1 day
-  max_ttl     = 31536000 # 1 year
   min_ttl     = 0
+  default_ttl = 0        # 1 day
+  max_ttl     = 31536000 # 1 year
 
   parameters_in_cache_key_and_forwarded_to_origin {
     # Explanation: Static should not vary on cookies—megatron refuses to cache 10,000 versions of a PNG.

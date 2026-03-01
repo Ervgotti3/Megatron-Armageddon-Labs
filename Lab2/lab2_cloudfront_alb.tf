@@ -69,9 +69,9 @@ resource "aws_cloudfront_distribution" "megatron_cf01" {
     allowed_methods = ["GET", "HEAD", "OPTIONS"]
     cached_methods  = ["GET", "HEAD"]
 
-    cache_policy_id            = aws_cloudfront_cache_policy.megatron_cache_static01.id
-    origin_request_policy_id   = aws_cloudfront_origin_request_policy.megatron_orp_api01.id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.megatron_rsp_static01.id
+    cache_policy_id          = aws_cloudfront_cache_policy.megatron_cache_static01.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.megatron_orp_api01.id
+    #response_headers_policy_id = aws_cloudfront_response_headers_policy.megatron_rsp_static01.id
   }
 
   # Explanation: Attach WAF at the edge — now WAF moved to CloudFront.
