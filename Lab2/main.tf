@@ -855,7 +855,7 @@ resource "aws_sns_topic_subscription" "megatron_sns_sub01" {
 # Explanation: megatron doesn’t hand out the Falcon keys—this policy scopes reads to your lab paths only.
 resource "aws_iam_policy" "megatron_leastpriv_read_params01" {
   name        = "${local.name_prefix}-lp-ssm-read01"
-  description = "Least-privilege read for SSM Parameter Store under /lab1/rds/mysql/*"
+  description = "Least-privilege read for SSM Parameter Store under /lab2/rds/mysql/*"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -1211,8 +1211,6 @@ resource "aws_wafv2_web_acl_logging_configuration" "megatron_waf_logging01" {
     local.waf_dest_is_s3 ? aws_s3_bucket.megatron_waf_logs_bucket01[0].arn :
     aws_kinesis_firehose_delivery_stream.megatron_waf_firehose01[0].arn
   ]
-
-
 
   # TODO: Students can add redacted_fields (authorization headers, cookies, etc.) as a stretch goal.
   # redacted_fields { ... }

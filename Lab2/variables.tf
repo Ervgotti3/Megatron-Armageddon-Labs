@@ -16,6 +16,7 @@ variable "domain_name" {
   default     = "technology4gold.com" # TODO: student supplies domain name
 
 }
+
 variable "app_subdomain" {
   description = "Subdomain for the app (e.g., technology4gold.com -> 'app')."
   type        = string
