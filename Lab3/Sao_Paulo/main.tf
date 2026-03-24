@@ -303,10 +303,10 @@ resource "aws_security_group" "megatron_alb_sg01" {
 # Explanation: megatron only opens the hangar door — allow ALB -> EC2 on app port (e.g., 80).
 resource "aws_security_group_rule" "megatron_ec2_ingress_from_alb01" {
   type                     = "ingress"
-  security_group_id        = aws_security_group.megatron_ec2_sg01.id
   from_port                = 80
   to_port                  = 80
   protocol                 = "tcp"
+  security_group_id        = aws_security_group.megatron_ec2_sg01.id
   source_security_group_id = aws_security_group.megatron_alb_sg01.id
 
   # TODO: students ensure EC2 app listens on this port (or change to 8080, etc.)
@@ -377,7 +377,7 @@ resource "aws_lb_target_group" "megatron_tg01" {
 resource "aws_lb_target_group_attachment" "megatron_tg_attach01" {
   target_group_arn = aws_lb_target_group.megatron_tg01.arn
   target_id        = aws_instance.megatron_ec2_01.id
-  port             = 3000
+  port             = 80
   # TODO: students ensure EC2 security group allows inbound from ALB SG on this port (rule above)
 }
 
@@ -385,31 +385,14 @@ resource "aws_lb_target_group_attachment" "megatron_tg_attach01" {
 # ALB Listeners: HTTP -> HTTPS redirect, HTTPS -> TG
 ########################################################################################################
 
-# Explanation: HTTP listener is the decoy airlock — it redirects everyone to the secure entrance.
+#Explanation: HTTPS listener is the real hangar bay — TLS terminates here, then traffic goes to private targets.
 resource "aws_lb_listener" "megatron_http_listener01" {
   load_balancer_arn = aws_lb.megatron_alb01.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.megatron_tg01.arn
   }
 }
-## Explanation: HTTPS listener is the secure command bridge — TLS termination and forward to private targets.
-
-# #Explanation: HTTPS listener is the real hangar bay — TLS terminates here, then traffic goes to private targets.
-#resource "aws_lb_listener" "megatron_http_listener01" {
-#  load_balancer_arn = aws_lb.megatron_alb01.arn
-#  port              = 80
-#  protocol          = "HTTP"
-
-#  default_action {
-#    type             = "forward"
-#    target_group_arn = aws_lb_target_group.megatron_tg01.arn
-#  }
-#}

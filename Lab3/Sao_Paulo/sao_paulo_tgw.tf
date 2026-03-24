@@ -48,6 +48,3 @@ resource "aws_ec2_transit_gateway_route_table_propagation" "saopaulo_prop01" {
   transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.saopaulo_tgw_rt01.id
 }
 
-output "saopaulo_tgw_id" {
-  value = aws_ec2_transit_gateway.saopaulo_tgw01.id
-}
